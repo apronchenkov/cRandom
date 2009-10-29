@@ -1,15 +1,20 @@
 /** 
- * @file dSFMT.c 
- * @brief double precision SIMD-oriented Fast Mersenne Twister (dSFMT)
- * based on IEEE 754 format.
+ * @file dSFMT.h 
+ *
+ * @brief double precision SIMD oriented Fast Mersenne Twister(dSFMT)
+ * pseudorandom number generator based on IEEE 754 format.
  *
  * @author Mutsuo Saito (Hiroshima University)
  * @author Makoto Matsumoto (Hiroshima University)
+ * @author Alexander G. Pronchenkov (Ural State University)
  *
- * Copyright (C) 2007,2008 Mutsuo Saito, Makoto Matsumoto and Hiroshima
- * University. All rights reserved.
+ * Copyright (C) 2009 Alexander G. Pronchenkov. All rights reserved.
  *
- * The new BSD License is applied to this software, see LICENSE.txt
+ * Copyright (C) 2007, 2008 Mutsuo Saito, Makoto Matsumoto and
+ * Hiroshima University. All rights reserved.
+ *
+ * The new BSD License is applied to this software.
+ * see LICENSE.txt
  */
 #include <assert.h>
 #include <stdio.h>

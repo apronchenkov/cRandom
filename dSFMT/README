@@ -1,0 +1,41 @@
+ cRandom ver. 0.1
+ 2009.10.29
+ (based on dSFMT ver. 2.1)
+
+ double precision SIMD oriented Fast Mersenne Twister(dSFMT)
+ based on IEEE 754 floating point format.
+
+ Alexander G. Pronchenkov (Ural State University)
+
+ Copyright (C) 2009 Alexander G. Pronchenkov. All rights reserved.
+
+ The (modified) BSD License is applied to this software, see
+ LICENSE.txt
+ =================================================================
+ This program only works on systems which have IEEE754 floating point
+ format.
+
+ This version uses `struct' of C language.
+ Don't use different DSFMT_MEXP for compiling dSFMT.c and your program.
+
+ If your CPU is BIG ENDIAN and your compiler is not gcc,
+ define DSFMT_BIG_ENDIAN preprocessor macro, please.
+
+ If you want to redistribute and/or change source files, see LICENSE.txt.
+
+> =================================================================
+> dSFMT ver. 2.1
+> 2009.04.18
+>
+> double precision SIMD oriented Fast Mersenne Twister(dSFMT)
+> based on IEEE 754 floating point format.
+>
+> Mutsuo Saito (Hiroshima University) and
+> Makoto Matsumoto (Hiroshima University)
+>
+> Copyright (C) 2007, 2008, 2009 Mutsuo Saito, Makoto Matsumoto and
+> Hiroshima University. All rights reserved.
+>
+> The (modified) BSD License is applied to this software, see
+> LICENSE.txt
+> =================================================================

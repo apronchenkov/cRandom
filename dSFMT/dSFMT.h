@@ -6,6 +6,9 @@
  *
  * @author Mutsuo Saito (Hiroshima University)
  * @author Makoto Matsumoto (Hiroshima University)
+ * @author Alexander G. Pronchenkov (Ural State University)
+ *
+ * Copyright (C) 2009 Alexander G. Pronchenkov. All rights reserved.
  *
  * Copyright (C) 2007, 2008 Mutsuo Saito, Makoto Matsumoto and
  * Hiroshima University. All rights reserved.

@@ -1,3 +1,5 @@
+Copyright (C) 2009 Alexander G. Pronchenkov. All rights reserved.
+
 Copyright (c) 2007, 2008 Mutsuo Saito, Makoto Matsumoto and Hiroshima
 University.  All rights reserved.
 

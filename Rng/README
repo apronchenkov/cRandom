@@ -1,0 +1,21 @@
+This is a C library for generating random variates from six discrete distributions:
+      Generator         Range (x)     Mean         Variance
+
+      Bernoulli(p)      x = 0,1       p            p*(1-p)
+      Binomial(n, p)    x = 0,...,n   n*p          n*p*(1-p)
+      Equilikely(a, b)  x = a,...,b   (a+b)/2      ((b-a+1)*(b-a+1)-1)/12
+      Geometric(p)      x = 0,...     p/(1-p)      p/((1-p)*(1-p))
+      Pascal(n, p)      x = 0,...     n*p/(1-p)    n*p/((1-p)*(1-p))
+      Poisson(m)        x = 0,...     m            m
+ 
+and seven continuous distributions
+
+      Uniform(a, b)     a < x < b     (a + b)/2    (b - a)*(b - a)/12 
+      Exponential(m)    x > 0         m            m*m
+      Erlang(n, b)      x > 0         n*b          n*b*b
+      Normal(m, s)      all x         m            s*s
+      Lognormal(a, b)   x > 0            see below
+      Chisquare(n)      x > 0         n            2*n 
+      Student(n)        all x         0  (n > 1)   n/(n - 2)   (n > 2)
+
+For the a Lognormal(a, b) random variable, the mean and variance are
