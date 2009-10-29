@@ -16,10 +16,6 @@
 #include <stdlib.h>
 #include "dSFMT-params.h"
 
-/** dsfmt internal state vector */
-dsfmt_t dsfmt_global_data;
-/** dsfmt mexp for check */
-static const int dsfmt_mexp = DSFMT_MEXP;
 
 /*----------------
   STATIC FUNCTIONS
@@ -620,17 +616,11 @@ void dsfmt_fill_array_open_open(dsfmt_t *dsfmt, double array[], int size) {
  * integer seed.
  * @param dsfmt dsfmt state vector.
  * @param seed a 32-bit integer used as the seed.
- * @param mexp caller's mersenne expornent
  */
-void dsfmt_chk_init_gen_rand(dsfmt_t *dsfmt, uint32_t seed, int mexp) {
+void dsfmt_init_gen_rand(dsfmt_t *dsfmt, uint32_t seed) {
     int i;
     uint32_t *psfmt;
 
-    /* make sure caller program is compiled with the same MEXP */
-    if (mexp != dsfmt_mexp) {
-	fprintf(stderr, "DSFMT_MEXP doesn't match with dSFMT.c\n");
-	exit(1);
-    }
     psfmt = &dsfmt->status[0].u32[0];
     psfmt[idxof(0)] = seed;
     for (i = 1; i < (DSFMT_N + 1) * 4; i++) {
@@ -651,10 +641,9 @@ void dsfmt_chk_init_gen_rand(dsfmt_t *dsfmt, uint32_t seed, int mexp) {
  * @param dsfmt dsfmt state vector.
  * @param init_key the array of 32-bit integers, used as a seed.
  * @param key_length the length of init_key.
- * @param mexp caller's mersenne expornent
  */
-void dsfmt_chk_init_by_array(dsfmt_t *dsfmt, uint32_t init_key[],
-			     int key_length, int mexp) {
+void dsfmt_init_by_array(dsfmt_t *dsfmt, uint32_t init_key[],
+			     int key_length) {
     int i, j, count;
     uint32_t r;
     uint32_t *psfmt32;
@@ -662,11 +651,6 @@ void dsfmt_chk_init_by_array(dsfmt_t *dsfmt, uint32_t init_key[],
     int mid;
     int size = (DSFMT_N + 1) * 4;	/* pulmonary */
 
-    /* make sure caller program is compiled with the same MEXP */
-    if (mexp != dsfmt_mexp) {
-	fprintf(stderr, "DSFMT_MEXP doesn't match with dSFMT.c\n");
-	exit(1);
-    }
     if (size >= 623) {
 	lag = 11;
     } else if (size >= 68) {
