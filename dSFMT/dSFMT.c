@@ -11,6 +11,7 @@
  *
  * The new BSD License is applied to this software, see LICENSE.txt
  */
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,22 +19,48 @@
 #include "dSFMT-params.h"
 
 
+/*------------------------------------------
+  128-bit SIMD like data type for standard C
+  ------------------------------------------*/
+#if defined(HAVE_ALTIVEC)
+#  if !defined(__APPLE__)
+#    include <altivec.h>
+#  endif
+/** 128-bit data structure */
+typedef struct {
+    vector unsigned int s;
+} v128_t;
+
+#elif defined(HAVE_SSE2)
+#  include <emmintrin.h>
+
+/** 128-bit data structure */
+typedef union {
+    __m128i si;
+    __m128d sd;
+} v128_t;
+
+#else  /* standard C */
+/** 128-bit data structure */
+typedef w128_t v128_t;
+#endif
+
+
 /*----------------
   STATIC FUNCTIONS
   ----------------*/
 inline static uint32_t ini_func1(uint32_t x);
 inline static uint32_t ini_func2(uint32_t x);
-inline static void gen_rand_array_c1o2(dsfmt_t * dsfmt, w128_t * array, int size);
-inline static void gen_rand_array_c0o1(dsfmt_t * dsfmt, w128_t * array, int size);
-inline static void gen_rand_array_o0c1(dsfmt_t * dsfmt, w128_t * array, int size);
-inline static void gen_rand_array_o0o1(dsfmt_t * dsfmt, w128_t * array, int size);
+inline static void gen_rand_array_c1o2(dsfmt_t * dsfmt, v128_t * array, int size);
+inline static void gen_rand_array_c0o1(dsfmt_t * dsfmt, v128_t * array, int size);
+inline static void gen_rand_array_o0c1(dsfmt_t * dsfmt, v128_t * array, int size);
+inline static void gen_rand_array_o0o1(dsfmt_t * dsfmt, v128_t * array, int size);
 inline static int idxof(int i);
 static void initial_mask(dsfmt_t * dsfmt);
 static void period_certification(dsfmt_t * dsfmt);
 
 
 #if defined(HAVE_SSE2)
-#  include <emmintrin.h>
 /** mask data for sse2 */
 static __m128i sse2_param_mask;
 /** 1 in 64bit for sse2 */
@@ -44,6 +71,33 @@ static __m128d sse2_double_two;
 static __m128d sse2_double_m_one;
 
 static void setup_const(void);
+#endif
+
+
+#if !defined(DSFMT_BIG_ENDIAN)
+#  if defined(__BYTE_ORDER) && defined(__BIG_ENDIAN)
+#    if __BYTE_ORDER == __BIG_ENDIAN
+#      define DSFMT_BIG_ENDIAN 1
+#    endif
+#  elif defined(_BYTE_ORDER) && defined(_BIG_ENDIAN)
+#    if _BYTE_ORDER == _BIG_ENDIAN
+#      define DSFMT_BIG_ENDIAN 1
+#    endif
+#  elif defined(__BYTE_ORDER__) && defined(__BIG_ENDIAN__)
+#    if __BYTE_ORDER__ == __BIG_ENDIAN__
+#      define DSFMT_BIG_ENDIAN 1
+#    endif
+#  elif defined(BYTE_ORDER) && defined(BIG_ENDIAN)
+#    if BYTE_ORDER == BIG_ENDIAN
+#      define DSFMT_BIG_ENDIAN 1
+#    endif
+#  elif defined(__BIG_ENDIAN) || defined(_BIG_ENDIAN) || defined(__BIG_ENDIAN__) || defined(BIG_ENDIAN)
+#      define DSFMT_BIG_ENDIAN 1
+#  endif
+#endif
+
+#if defined(DSFMT_BIG_ENDIAN) && defined(__amd64)
+#  undef DSFMT_BIG_ENDIAN
 #endif
 
 /**
@@ -69,7 +123,7 @@ inline static int idxof(int i) {
  * @param lung a 128-bit part of the internal state array
  */
 #if defined(HAVE_ALTIVEC)
-inline static void do_recursion(w128_t * r, w128_t * a, w128_t * b, w128_t * lung) {
+inline static void do_recursion(v128_t * r, v128_t * a, v128_t * b, v128_t * lung) {
     const vector unsigned char sl1 = ALTI_SL1;
     const vector unsigned char sl1_perm = ALTI_SL1_PERM;
     const vector unsigned int sl1_msk = ALTI_SL1_MSK;
@@ -119,7 +173,7 @@ static void setup_const(void) {
  * @param b a 128-bit part of the internal state array
  * @param d a 128-bit part of the internal state array (I/O)
  */
-inline static void do_recursion(w128_t * r, w128_t * a, w128_t * b, w128_t * u) {
+inline static void do_recursion(v128_t * r, v128_t * a, v128_t * b, v128_t * u) {
     __m128i v, w, x, y, z;
     
     x = a->si;
@@ -143,7 +197,7 @@ inline static void do_recursion(w128_t * r, w128_t * a, w128_t * b, w128_t * u) 
  * @param b a 128-bit part of the internal state array
  * @param lung a 128-bit part of the internal state array (I/O)
  */
-inline static void do_recursion(w128_t * r, w128_t * a, w128_t * b, w128_t * lung) {
+inline static void do_recursion(v128_t * r, v128_t * a, v128_t * b, v128_t * lung) {
     uint64_t t0, t1, L0, L1;
 
     t0 = a->u[0];
@@ -164,7 +218,7 @@ inline static void do_recursion(w128_t * r, w128_t * a, w128_t * b, w128_t * lun
  * in the range [0, 1).
  * @param w 128bit stracture of double precision floating point numbers (I/O)
  */
-inline static void convert_c0o1(w128_t * w) {
+inline static void convert_c0o1(v128_t * w) {
     w->sd = _mm_add_pd(w->sd, sse2_double_m_one);
 }
 
@@ -174,7 +228,7 @@ inline static void convert_c0o1(w128_t * w) {
  * in the range (0, 1].
  * @param w 128bit stracture of double precision floating point numbers (I/O)
  */
-inline static void convert_o0c1(w128_t * w) {
+inline static void convert_o0c1(v128_t * w) {
     w->sd = _mm_sub_pd(sse2_double_two, w->sd);
 }
 
@@ -184,7 +238,7 @@ inline static void convert_o0c1(w128_t * w) {
  * in the range (0, 1).
  * @param w 128bit stracture of double precision floating point numbers (I/O)
  */
-inline static void convert_o0o1(w128_t * w) {
+inline static void convert_o0o1(v128_t * w) {
     w->si = _mm_or_si128(w->si, sse2_int_one);
     w->sd = _mm_add_pd(w->sd, sse2_double_m_one);
 }
@@ -195,7 +249,7 @@ inline static void convert_o0o1(w128_t * w) {
  * in the range [0, 1).
  * @param w 128bit stracture of double precision floating point numbers (I/O)
  */
-inline static void convert_c0o1(w128_t * w) {
+inline static void convert_c0o1(v128_t * w) {
     w->d[0] -= 1.0;
     w->d[1] -= 1.0;
 }
@@ -206,7 +260,7 @@ inline static void convert_c0o1(w128_t * w) {
  * in the range (0, 1].
  * @param w 128bit stracture of double precision floating point numbers (I/O)
  */
-inline static void convert_o0c1(w128_t * w) {
+inline static void convert_o0c1(v128_t * w) {
     w->d[0] = 2.0 - w->d[0];
     w->d[1] = 2.0 - w->d[1];
 }
@@ -217,7 +271,7 @@ inline static void convert_o0c1(w128_t * w) {
  * in the range (0, 1).
  * @param w 128bit stracture of double precision floating point numbers (I/O)
  */
-inline static void convert_o0o1(w128_t * w) {
+inline static void convert_o0o1(v128_t * w) {
     w->u[0] |= 1;
     w->u[1] |= 1;
     w->d[0] -= 1.0;
@@ -232,29 +286,30 @@ inline static void convert_o0o1(w128_t * w) {
  * @param array an 128-bit array to be filled by pseudorandom numbers.  
  * @param size number of 128-bit pseudorandom numbers to be generated.
  */
-inline static void gen_rand_array_c1o2(dsfmt_t * dsfmt, w128_t * array, int size) {
+inline static void gen_rand_array_c1o2(dsfmt_t * dsfmt, v128_t * array, int size) {
     int i, j;
-    w128_t lung;
+    v128_t * const status = (v128_t *)dsfmt->status;
+    v128_t lung;
 
-    lung = dsfmt->status[DSFMT_N];
-    do_recursion(&array[0], &dsfmt->status[0], &dsfmt->status[DSFMT_POS1], &lung);
+    lung = status[DSFMT_N];
+    do_recursion(&array[0], &status[0], &status[DSFMT_POS1], &lung);
     for (i = 1; i < DSFMT_N - DSFMT_POS1; i++) {
-	do_recursion(&array[i], &dsfmt->status[i], &dsfmt->status[i + DSFMT_POS1], &lung);
+	do_recursion(&array[i], &status[i], &status[i + DSFMT_POS1], &lung);
     }
     for (; i < DSFMT_N; i++) {
-	do_recursion(&array[i], &dsfmt->status[i], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &status[i], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
     }
     for (; i < size - DSFMT_N; i++) {
 	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
     }
     for (j = 0; j < 2 * DSFMT_N - size; j++) {
-	dsfmt->status[j] = array[j + size - DSFMT_N];
+	status[j] = array[j + size - DSFMT_N];
     }
     for (; i < size; i++, j++) {
 	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
-	dsfmt->status[j] = array[i];
+	status[j] = array[i];
     }
-    dsfmt->status[DSFMT_N] = lung;
+    status[DSFMT_N] = lung;
 }
 
 /**
@@ -264,34 +319,35 @@ inline static void gen_rand_array_c1o2(dsfmt_t * dsfmt, w128_t * array, int size
  * @param array an 128-bit array to be filled by pseudorandom numbers.  
  * @param size number of 128-bit pseudorandom numbers to be generated.
  */
-inline static void gen_rand_array_c0o1(dsfmt_t * dsfmt, w128_t * array, int size) {
+inline static void gen_rand_array_c0o1(dsfmt_t * dsfmt, v128_t * array, int size) {
     int i, j;
-    w128_t lung;
+    v128_t * const status = (v128_t *)dsfmt->status;
+    v128_t lung;
 
-    lung = dsfmt->status[DSFMT_N];
-    do_recursion(&array[0], &dsfmt->status[0], &dsfmt->status[DSFMT_POS1], &lung);
+    lung = status[DSFMT_N];
+    do_recursion(&array[0], &status[0], &status[DSFMT_POS1], &lung);
     for (i = 1; i < DSFMT_N - DSFMT_POS1; i++) {
-	do_recursion(&array[i], &dsfmt->status[i], &dsfmt->status[i + DSFMT_POS1], &lung);
+	do_recursion(&array[i], &status[i], &status[i + DSFMT_POS1], &lung);
     }
     for (; i < DSFMT_N; i++) {
-	do_recursion(&array[i], &dsfmt->status[i], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &status[i], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
     }
     for (; i < size - DSFMT_N; i++) {
 	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
 	convert_c0o1(&array[i - DSFMT_N]);
     }
     for (j = 0; j < 2 * DSFMT_N - size; j++) {
-	dsfmt->status[j] = array[j + size - DSFMT_N];
+	status[j] = array[j + size - DSFMT_N];
     }
     for (; i < size; i++, j++) {
 	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
-	dsfmt->status[j] = array[i];
+	status[j] = array[i];
 	convert_c0o1(&array[i - DSFMT_N]);
     }
     for (i = size - DSFMT_N; i < size; i++) {
 	convert_c0o1(&array[i]);
     }
-    dsfmt->status[DSFMT_N] = lung;
+    status[DSFMT_N] = lung;
 }
 
 /**
@@ -301,34 +357,35 @@ inline static void gen_rand_array_c0o1(dsfmt_t * dsfmt, w128_t * array, int size
  * @param array an 128-bit array to be filled by pseudorandom numbers.  
  * @param size number of 128-bit pseudorandom numbers to be generated.
  */
-inline static void gen_rand_array_o0o1(dsfmt_t * dsfmt, w128_t * array, int size) {
+inline static void gen_rand_array_o0o1(dsfmt_t * dsfmt, v128_t * array, int size) {
     int i, j;
-    w128_t lung;
+    v128_t * const status = (v128_t *)dsfmt->status;
+    v128_t lung;
 
-    lung = dsfmt->status[DSFMT_N];
-    do_recursion(&array[0], &dsfmt->status[0], &dsfmt->status[DSFMT_POS1], &lung);
+    lung = status[DSFMT_N];
+    do_recursion(&array[0], &status[0], &status[DSFMT_POS1], &lung);
     for (i = 1; i < DSFMT_N - DSFMT_POS1; i++) {
-	do_recursion(&array[i], &dsfmt->status[i], &dsfmt->status[i + DSFMT_POS1], &lung);
+	do_recursion(&array[i], &status[i], &status[i + DSFMT_POS1], &lung);
     }
     for (; i < DSFMT_N; i++) {
-	do_recursion(&array[i], &dsfmt->status[i], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &status[i], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
     }
     for (; i < size - DSFMT_N; i++) {
 	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
 	convert_o0o1(&array[i - DSFMT_N]);
     }
     for (j = 0; j < 2 * DSFMT_N - size; j++) {
-	dsfmt->status[j] = array[j + size - DSFMT_N];
+	status[j] = array[j + size - DSFMT_N];
     }
     for (; i < size; i++, j++) {
 	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
-	dsfmt->status[j] = array[i];
+	status[j] = array[i];
 	convert_o0o1(&array[i - DSFMT_N]);
     }
     for (i = size - DSFMT_N; i < size; i++) {
 	convert_o0o1(&array[i]);
     }
-    dsfmt->status[DSFMT_N] = lung;
+    status[DSFMT_N] = lung;
 }
 
 /**
@@ -338,34 +395,35 @@ inline static void gen_rand_array_o0o1(dsfmt_t * dsfmt, w128_t * array, int size
  * @param array an 128-bit array to be filled by pseudorandom numbers.  
  * @param size number of 128-bit pseudorandom numbers to be generated.
  */
-inline static void gen_rand_array_o0c1(dsfmt_t * dsfmt, w128_t * array, int size) {
+inline static void gen_rand_array_o0c1(dsfmt_t * dsfmt, v128_t * array, int size) {
     int i, j;
-    w128_t lung;
+    v128_t * const status = (v128_t *)dsfmt->status;
+    v128_t lung;
 
-    lung = dsfmt->status[DSFMT_N];
-    do_recursion(&array[0], &dsfmt->status[0], &dsfmt->status[DSFMT_POS1], &lung);
+    lung = status[DSFMT_N];
+    do_recursion(&array[0], &status[0], &status[DSFMT_POS1], &lung);
     for (i = 1; i < DSFMT_N - DSFMT_POS1; i++) {
-	do_recursion(&array[i], &dsfmt->status[i], &dsfmt->status[i + DSFMT_POS1], &lung);
+	do_recursion(&array[i], &status[i], &status[i + DSFMT_POS1], &lung);
     }
     for (; i < DSFMT_N; i++) {
-	do_recursion(&array[i], &dsfmt->status[i], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &status[i], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
     }
     for (; i < size - DSFMT_N; i++) {
 	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
 	convert_o0c1(&array[i - DSFMT_N]);
     }
     for (j = 0; j < 2 * DSFMT_N - size; j++) {
-	dsfmt->status[j] = array[j + size - DSFMT_N];
+	status[j] = array[j + size - DSFMT_N];
     }
     for (; i < size; i++, j++) {
 	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
-	dsfmt->status[j] = array[i];
+	status[j] = array[i];
 	convert_o0c1(&array[i - DSFMT_N]);
     }
     for (i = size - DSFMT_N; i < size; i++) {
 	convert_o0c1(&array[i]);
     }
-    dsfmt->status[DSFMT_N] = lung;
+    status[DSFMT_N] = lung;
 }
 
 /**
@@ -476,17 +534,18 @@ int dsfmt_get_min_array_size(void) {
  */
 void dsfmt_gen_rand_all(dsfmt_t * dsfmt) {
     int i;
-    w128_t lung;
+    v128_t * const status = (v128_t *)dsfmt->status;
+    v128_t lung;
 
-    lung = dsfmt->status[DSFMT_N];
-    do_recursion(&dsfmt->status[0], &dsfmt->status[0], &dsfmt->status[DSFMT_POS1], &lung);
+    lung = status[DSFMT_N];
+    do_recursion(&status[0], &status[0], &status[DSFMT_POS1], &lung);
     for (i = 1; i < DSFMT_N - DSFMT_POS1; i++) {
-	do_recursion(&dsfmt->status[i], &dsfmt->status[i], &dsfmt->status[i + DSFMT_POS1], &lung);
+	do_recursion(&status[i], &status[i], &status[i + DSFMT_POS1], &lung);
     }
     for (; i < DSFMT_N; i++) {
-	do_recursion(&dsfmt->status[i], &dsfmt->status[i], &dsfmt->status[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&status[i], &status[i], &status[i + DSFMT_POS1 - DSFMT_N], &lung);
     }
-    dsfmt->status[DSFMT_N] = lung;
+    status[DSFMT_N] = lung;
 }
 
 /**
@@ -520,7 +579,7 @@ void dsfmt_gen_rand_all(dsfmt_t * dsfmt) {
 void dsfmt_fill_array_close1_open2(dsfmt_t * dsfmt, double array[], int size) {
     assert(size % 2 == 0);
     assert(size >= DSFMT_N64);
-    gen_rand_array_c1o2(dsfmt, (w128_t *)array, size / 2);
+    gen_rand_array_c1o2(dsfmt, (v128_t *)array, size / 2);
 }
 
 /**
@@ -538,7 +597,7 @@ void dsfmt_fill_array_close1_open2(dsfmt_t * dsfmt, double array[], int size) {
 void dsfmt_fill_array_open_close(dsfmt_t * dsfmt, double array[], int size) {
     assert(size % 2 == 0);
     assert(size >= DSFMT_N64);
-    gen_rand_array_o0c1(dsfmt, (w128_t *)array, size / 2);
+    gen_rand_array_o0c1(dsfmt, (v128_t *)array, size / 2);
 }
 
 /**
@@ -556,7 +615,7 @@ void dsfmt_fill_array_open_close(dsfmt_t * dsfmt, double array[], int size) {
 void dsfmt_fill_array_close_open(dsfmt_t * dsfmt, double array[], int size) {
     assert(size % 2 == 0);
     assert(size >= DSFMT_N64);
-    gen_rand_array_c0o1(dsfmt, (w128_t *)array, size / 2);
+    gen_rand_array_c0o1(dsfmt, (v128_t *)array, size / 2);
 }
 
 /**
@@ -574,7 +633,7 @@ void dsfmt_fill_array_close_open(dsfmt_t * dsfmt, double array[], int size) {
 void dsfmt_fill_array_open_open(dsfmt_t * dsfmt, double array[], int size) {
     assert(size % 2 == 0);
     assert(size >= DSFMT_N64);
-    gen_rand_array_o0o1(dsfmt, (w128_t *)array, size / 2);
+    gen_rand_array_o0o1(dsfmt, (v128_t *)array, size / 2);
 }
 
 #if defined(__INTEL_COMPILER)

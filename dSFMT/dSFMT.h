@@ -19,9 +19,6 @@
 #ifndef DSFMT_H
 #define DSFMT_H
 
-#include <assert.h>
-#include <stdio.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -42,32 +39,6 @@ extern "C" {
 /** N64 is the size of internal state array when regarded as an array
  * of 64-bit integers.*/
 #define DSFMT_N64 (DSFMT_N * 2)
-
-#if !defined(DSFMT_BIG_ENDIAN)
-#  if defined(__BYTE_ORDER) && defined(__BIG_ENDIAN)
-#    if __BYTE_ORDER == __BIG_ENDIAN
-#      define DSFMT_BIG_ENDIAN 1
-#    endif
-#  elif defined(_BYTE_ORDER) && defined(_BIG_ENDIAN)
-#    if _BYTE_ORDER == _BIG_ENDIAN
-#      define DSFMT_BIG_ENDIAN 1
-#    endif
-#  elif defined(__BYTE_ORDER__) && defined(__BIG_ENDIAN__)
-#    if __BYTE_ORDER__ == __BIG_ENDIAN__
-#      define DSFMT_BIG_ENDIAN 1
-#    endif
-#  elif defined(BYTE_ORDER) && defined(BIG_ENDIAN)
-#    if BYTE_ORDER == BIG_ENDIAN
-#      define DSFMT_BIG_ENDIAN 1
-#    endif
-#  elif defined(__BIG_ENDIAN) || defined(_BIG_ENDIAN) || defined(__BIG_ENDIAN__) || defined(BIG_ENDIAN)
-#      define DSFMT_BIG_ENDIAN 1
-#  endif
-#endif
-
-#if defined(DSFMT_BIG_ENDIAN) && defined(__amd64)
-#  undef DSFMT_BIG_ENDIAN
-#endif
 
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
 #  include <inttypes.h>
@@ -96,50 +67,19 @@ typedef unsigned __int64 uint64_t;
 #  define UINT64_C(v) (v ## ULL) 
 #endif
 
-/*------------------------------------------
-  128-bit SIMD like data type for standard C
-  ------------------------------------------*/
-#if defined(HAVE_ALTIVEC)
-#  if !defined(__APPLE__)
-#    include <altivec.h>
-#  endif
+
 /** 128-bit data structure */
-union W128_T {
-    vector unsigned int s;
+typedef union {
     uint64_t u[2];
     uint32_t u32[4];
     double d[2];
-};
-
-#elif defined(HAVE_SSE2)
-#  include <emmintrin.h>
-
-/** 128-bit data structure */
-union W128_T {
-    __m128i si;
-    __m128d sd;
-    uint64_t u[2];
-    uint32_t u32[4];
-    double d[2];
-};
-#else  /* standard C */
-/** 128-bit data structure */
-union W128_T {
-    uint64_t u[2];
-    uint32_t u32[4];
-    double d[2];
-};
-#endif
-
-/** 128-bit data type */
-typedef union W128_T w128_t;
+} w128_t;
 
 /** the 128-bit internal state array */
-struct DSFMT_T {
+typedef struct {
     w128_t status[DSFMT_N + 1];
     int idx;
-};
-typedef struct DSFMT_T dsfmt_t;
+} dsfmt_t;
 
 
 /**
@@ -148,7 +88,6 @@ typedef struct DSFMT_T dsfmt_t;
  * @param dsfmt dsfmt state vector.
  */
 void dsfmt_gen_rand_all(dsfmt_t * dsfmt);
-
 
 /**
  * This function generates double precision floating point
