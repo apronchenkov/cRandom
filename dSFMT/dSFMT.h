@@ -19,20 +19,23 @@
 #ifndef DSFMT_H
 #define DSFMT_H
 
-#include <stdio.h>
 #include <assert.h>
+#include <stdio.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #if !defined(DSFMT_MEXP)
-#ifdef __GNUC__
-  #warning "DSFMT_MEXP is not defined. I assume DSFMT_MEXP is 19937."
-#endif
-  #define DSFMT_MEXP 19937
+#  ifdef __GNUC__
+#    warning "DSFMT_MEXP is not defined. I assume DSFMT_MEXP is 19937."
+#  endif
+#  define DSFMT_MEXP 19937
 #endif
 /*-----------------
   BASIC DEFINITIONS
   -----------------*/
-/* Mersenne Exponent. The period of the sequence 
- *  is a multiple of 2^DSFMT_MEXP-1. */
+/* Mersenne Exponent. The period of the sequence is a multiple of 2^DSFMT_MEXP-1. */
 /** DSFMT generator has an internal state array of 128-bit integers,
  * and N is its size. */
 #define DSFMT_N ((DSFMT_MEXP - 128) / 104 + 1)
@@ -57,8 +60,7 @@
 #    if BYTE_ORDER == BIG_ENDIAN
 #      define DSFMT_BIG_ENDIAN 1
 #    endif
-#  elif defined(__BIG_ENDIAN) || defined(_BIG_ENDIAN) \
-    || defined(__BIG_ENDIAN__) || defined(BIG_ENDIAN)
+#  elif defined(__BIG_ENDIAN) || defined(_BIG_ENDIAN) || defined(__BIG_ENDIAN__) || defined(BIG_ENDIAN)
 #      define DSFMT_BIG_ENDIAN 1
 #  endif
 #endif
@@ -140,16 +142,117 @@ struct DSFMT_T {
 typedef struct DSFMT_T dsfmt_t;
 
 
-void dsfmt_gen_rand_all(dsfmt_t *dsfmt);
-void dsfmt_fill_array_open_close(dsfmt_t *dsfmt, double array[], int size);
-void dsfmt_fill_array_close_open(dsfmt_t *dsfmt, double array[], int size);
-void dsfmt_fill_array_open_open(dsfmt_t *dsfmt, double array[], int size);
-void dsfmt_fill_array_close1_open2(dsfmt_t *dsfmt, double array[], int size);
-void dsfmt_init_gen_rand(dsfmt_t *dsfmt, uint32_t seed);
-void dsfmt_init_by_array(dsfmt_t *dsfmt, uint32_t init_key[],
-			     int key_length);
-const char *dsfmt_get_idstring(void);
+/**
+ * This function fills the internal state array with double precision
+ * floating point pseudorandom numbers of the IEEE 754 format.
+ * @param dsfmt dsfmt state vector.
+ */
+void dsfmt_gen_rand_all(dsfmt_t * dsfmt);
+
+
+/**
+ * This function generates double precision floating point
+ * pseudorandom numbers which distribute in the range [1, 2) to the
+ * specified array[] by one call. The number of pseudorandom numbers
+ * is specified by the argument \b size, which must be at least (SFMT_MEXP
+ * / 128) * 2 and a multiple of two.  The function
+ * get_min_array_size() returns this minimum size.  The generation by
+ * this function is much faster than the following fill_array_xxx functions.
+ *
+ * For initialization, init_gen_rand() or init_by_array() must be called
+ * before the first call of this function. This function can not be
+ * used after calling genrand_xxx functions, without initialization.
+ *
+ * @param dsfmt dsfmt state vector.
+ * @param array an array where pseudorandom numbers are filled
+ * by this function.  The pointer to the array must be "aligned"
+ * (namely, must be a multiple of 16) in the SIMD version, since it
+ * refers to the address of a 128-bit integer.  In the standard C
+ * version, the pointer is arbitrary.
+ *
+ * @param size the number of 64-bit pseudorandom integers to be
+ * generated.  size must be a multiple of 2, and greater than or equal
+ * to (SFMT_MEXP / 128) * 2.
+ *
+ * @note \b memalign or \b posix_memalign is available to get aligned
+ * memory. Mac OSX doesn't have these functions, but \b malloc of OSX
+ * returns the pointer to the aligned memory block.
+ */
+void dsfmt_fill_array_close1_open2(dsfmt_t * dsfmt, double array[], int size);
+
+/**
+ * This function generates double precision floating point
+ * pseudorandom numbers which distribute in the range (0, 1] to the
+ * specified array[] by one call. This function is the same as
+ * fill_array_close1_open2() except the distribution range.
+ *
+ * @param dsfmt dsfmt state vector.
+ * @param array an array where pseudorandom numbers are filled
+ * by this function.
+ * @param size the number of pseudorandom numbers to be generated.
+ * see also \sa fill_array_close1_open2()
+ */
+void dsfmt_fill_array_open_close(dsfmt_t * dsfmt, double array[], int size);
+
+/**
+ * This function generates double precision floating point
+ * pseudorandom numbers which distribute in the range [0, 1) to the
+ * specified array[] by one call. This function is the same as
+ * fill_array_close1_open2() except the distribution range.
+ *
+ * @param array an array where pseudorandom numbers are filled
+ * by this function.
+ * @param dsfmt dsfmt state vector.
+ * @param size the number of pseudorandom numbers to be generated.
+ * see also \sa fill_array_close1_open2()
+ */
+void dsfmt_fill_array_close_open(dsfmt_t * dsfmt, double array[], int size);
+
+/**
+ * This function generates double precision floating point
+ * pseudorandom numbers which distribute in the range (0, 1) to the
+ * specified array[] by one call. This function is the same as
+ * fill_array_close1_open2() except the distribution range.
+ *
+ * @param dsfmt dsfmt state vector.
+ * @param array an array where pseudorandom numbers are filled
+ * by this function.
+ * @param size the number of pseudorandom numbers to be generated.
+ * see also \sa fill_array_close1_open2()
+ */
+void dsfmt_fill_array_open_open(dsfmt_t * dsfmt, double array[], int size);
+
+/**
+ * This function initializes the internal state array with a 32-bit
+ * integer seed.
+ * @param dsfmt dsfmt state vector.
+ * @param seed a 32-bit integer used as the seed.
+ */
+void dsfmt_init_gen_rand(dsfmt_t * dsfmt, uint32_t seed);
+
+/**
+ * This function initializes the internal state array,
+ * with an array of 32-bit integers used as the seeds
+ * @param dsfmt dsfmt state vector.
+ * @param init_key the array of 32-bit integers, used as a seed.
+ * @param key_length the length of init_key.
+ */
+void dsfmt_init_by_array(dsfmt_t * dsfmt, uint32_t init_key[], int key_length);
+
+/**
+ * This function returns the identification string.  The string shows
+ * the Mersenne exponent, and all parameters of this generator.
+ * @return id string.
+ */
+const char * dsfmt_get_idstring(void);
+
+/**
+ * This function returns the minimum size of array used for \b
+ * fill_array functions.
+ * @return minimum size of array used for fill_array functions.
+ */
 int dsfmt_get_min_array_size(void);
+
 
 #if defined(__GNUC__)
 #  define DSFMT_PRE_INLINE inline static
@@ -161,14 +264,11 @@ int dsfmt_get_min_array_size(void);
 #  define DSFMT_PRE_INLINE inline static
 #  define DSFMT_PST_INLINE
 #endif
-DSFMT_PRE_INLINE double dsfmt_genrand_close1_open2(dsfmt_t *dsfmt)
-    DSFMT_PST_INLINE;
-DSFMT_PRE_INLINE double dsfmt_genrand_close_open(dsfmt_t *dsfmt)
-    DSFMT_PST_INLINE;
-DSFMT_PRE_INLINE double dsfmt_genrand_open_close(dsfmt_t *dsfmt)
-    DSFMT_PST_INLINE;
-DSFMT_PRE_INLINE double dsfmt_genrand_open_open(dsfmt_t *dsfmt)
-    DSFMT_PST_INLINE;
+
+DSFMT_PRE_INLINE double dsfmt_genrand_close1_open2(dsfmt_t * dsfmt) DSFMT_PST_INLINE;
+DSFMT_PRE_INLINE double dsfmt_genrand_close_open(dsfmt_t * dsfmt) DSFMT_PST_INLINE;
+DSFMT_PRE_INLINE double dsfmt_genrand_open_close(dsfmt_t * dsfmt) DSFMT_PST_INLINE;
+DSFMT_PRE_INLINE double dsfmt_genrand_open_open(dsfmt_t * dsfmt) DSFMT_PST_INLINE;
 
 
 /**
@@ -180,7 +280,7 @@ DSFMT_PRE_INLINE double dsfmt_genrand_open_open(dsfmt_t *dsfmt)
  * @param dsfmt dsfmt internal state date
  * @return double precision floating point pseudorandom number
  */
-inline static double dsfmt_genrand_close1_open2(dsfmt_t *dsfmt) {
+inline static double dsfmt_genrand_close1_open2(dsfmt_t * dsfmt) {
     double r;
     double *psfmt64 = &dsfmt->status[0].d[0];
 
@@ -200,7 +300,7 @@ inline static double dsfmt_genrand_close1_open2(dsfmt_t *dsfmt) {
  * @param dsfmt dsfmt internal state date
  * @return double precision floating point pseudorandom number
  */
-inline static double dsfmt_genrand_close_open(dsfmt_t *dsfmt) {
+inline static double dsfmt_genrand_close_open(dsfmt_t * dsfmt) {
     return dsfmt_genrand_close1_open2(dsfmt) - 1.0;
 }
 
@@ -212,7 +312,7 @@ inline static double dsfmt_genrand_close_open(dsfmt_t *dsfmt) {
  * @param dsfmt dsfmt internal state date
  * @return double precision floating point pseudorandom number
  */
-inline static double dsfmt_genrand_open_close(dsfmt_t *dsfmt) {
+inline static double dsfmt_genrand_open_close(dsfmt_t * dsfmt) {
     return 2.0 - dsfmt_genrand_close1_open2(dsfmt);
 }
 
@@ -224,7 +324,7 @@ inline static double dsfmt_genrand_open_close(dsfmt_t *dsfmt) {
  * @param dsfmt dsfmt internal state date
  * @return double precision floating point pseudorandom number
  */
-inline static double dsfmt_genrand_open_open(dsfmt_t *dsfmt) {
+inline static double dsfmt_genrand_open_open(dsfmt_t * dsfmt) {
     double *dsfmt64 = &dsfmt->status[0].d[0];
     union {
 	double d;
@@ -239,5 +339,10 @@ inline static double dsfmt_genrand_open_open(dsfmt_t *dsfmt) {
     r.u |= 1;
     return r.d - 1.0;
 }
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* DSFMT_H */

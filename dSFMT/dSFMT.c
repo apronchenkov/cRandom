@@ -12,8 +12,9 @@
  * The new BSD License is applied to this software, see LICENSE.txt
  */
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+
 #include "dSFMT-params.h"
 
 
@@ -22,17 +23,14 @@
   ----------------*/
 inline static uint32_t ini_func1(uint32_t x);
 inline static uint32_t ini_func2(uint32_t x);
-inline static void gen_rand_array_c1o2(dsfmt_t *dsfmt, w128_t *array,
-				       int size);
-inline static void gen_rand_array_c0o1(dsfmt_t *dsfmt, w128_t *array,
-				       int size);
-inline static void gen_rand_array_o0c1(dsfmt_t *dsfmt, w128_t *array,
-				       int size);
-inline static void gen_rand_array_o0o1(dsfmt_t *dsfmt, w128_t *array,
-				       int size);
+inline static void gen_rand_array_c1o2(dsfmt_t * dsfmt, w128_t * array, int size);
+inline static void gen_rand_array_c0o1(dsfmt_t * dsfmt, w128_t * array, int size);
+inline static void gen_rand_array_o0c1(dsfmt_t * dsfmt, w128_t * array, int size);
+inline static void gen_rand_array_o0o1(dsfmt_t * dsfmt, w128_t * array, int size);
 inline static int idxof(int i);
-static void initial_mask(dsfmt_t *dsfmt);
-static void period_certification(dsfmt_t *dsfmt);
+static void initial_mask(dsfmt_t * dsfmt);
+static void period_certification(dsfmt_t * dsfmt);
+
 
 #if defined(HAVE_SSE2)
 #  include <emmintrin.h>
@@ -62,6 +60,7 @@ inline static int idxof(int i) {
 }
 #endif
 
+
 /**
  * This function represents the recursion formula.
  * @param r output
@@ -70,8 +69,7 @@ inline static int idxof(int i) {
  * @param lung a 128-bit part of the internal state array
  */
 #if defined(HAVE_ALTIVEC)
-inline static void do_recursion(w128_t *r, w128_t *a, w128_t * b,
-				w128_t *lung) {
+inline static void do_recursion(w128_t * r, w128_t * a, w128_t * b, w128_t * lung) {
     const vector unsigned char sl1 = ALTI_SL1;
     const vector unsigned char sl1_perm = ALTI_SL1_PERM;
     const vector unsigned int sl1_msk = ALTI_SL1_MSK;
@@ -107,8 +105,7 @@ static void setup_const(void) {
     if (!first) {
 	return;
     }
-    sse2_param_mask = _mm_set_epi32(DSFMT_MSK32_3, DSFMT_MSK32_4,
-				    DSFMT_MSK32_1, DSFMT_MSK32_2);
+    sse2_param_mask = _mm_set_epi32(DSFMT_MSK32_3, DSFMT_MSK32_4, DSFMT_MSK32_1, DSFMT_MSK32_2);
     sse2_int_one = _mm_set_epi32(0, 1, 0, 1);
     sse2_double_two = _mm_set_pd(2.0, 2.0);
     sse2_double_m_one = _mm_set_pd(-1.0, -1.0);
@@ -122,7 +119,7 @@ static void setup_const(void) {
  * @param b a 128-bit part of the internal state array
  * @param d a 128-bit part of the internal state array (I/O)
  */
-inline static void do_recursion(w128_t *r, w128_t *a, w128_t *b, w128_t *u) {
+inline static void do_recursion(w128_t * r, w128_t * a, w128_t * b, w128_t * u) {
     __m128i v, w, x, y, z;
     
     x = a->si;
@@ -146,8 +143,7 @@ inline static void do_recursion(w128_t *r, w128_t *a, w128_t *b, w128_t *u) {
  * @param b a 128-bit part of the internal state array
  * @param lung a 128-bit part of the internal state array (I/O)
  */
-inline static void do_recursion(w128_t *r, w128_t *a, w128_t * b,
-				w128_t *lung) {
+inline static void do_recursion(w128_t * r, w128_t * a, w128_t * b, w128_t * lung) {
     uint64_t t0, t1, L0, L1;
 
     t0 = a->u[0];
@@ -168,7 +164,7 @@ inline static void do_recursion(w128_t *r, w128_t *a, w128_t * b,
  * in the range [0, 1).
  * @param w 128bit stracture of double precision floating point numbers (I/O)
  */
-inline static void convert_c0o1(w128_t *w) {
+inline static void convert_c0o1(w128_t * w) {
     w->sd = _mm_add_pd(w->sd, sse2_double_m_one);
 }
 
@@ -178,7 +174,7 @@ inline static void convert_c0o1(w128_t *w) {
  * in the range (0, 1].
  * @param w 128bit stracture of double precision floating point numbers (I/O)
  */
-inline static void convert_o0c1(w128_t *w) {
+inline static void convert_o0c1(w128_t * w) {
     w->sd = _mm_sub_pd(sse2_double_two, w->sd);
 }
 
@@ -188,7 +184,7 @@ inline static void convert_o0c1(w128_t *w) {
  * in the range (0, 1).
  * @param w 128bit stracture of double precision floating point numbers (I/O)
  */
-inline static void convert_o0o1(w128_t *w) {
+inline static void convert_o0o1(w128_t * w) {
     w->si = _mm_or_si128(w->si, sse2_int_one);
     w->sd = _mm_add_pd(w->sd, sse2_double_m_one);
 }
@@ -199,7 +195,7 @@ inline static void convert_o0o1(w128_t *w) {
  * in the range [0, 1).
  * @param w 128bit stracture of double precision floating point numbers (I/O)
  */
-inline static void convert_c0o1(w128_t *w) {
+inline static void convert_c0o1(w128_t * w) {
     w->d[0] -= 1.0;
     w->d[1] -= 1.0;
 }
@@ -210,7 +206,7 @@ inline static void convert_c0o1(w128_t *w) {
  * in the range (0, 1].
  * @param w 128bit stracture of double precision floating point numbers (I/O)
  */
-inline static void convert_o0c1(w128_t *w) {
+inline static void convert_o0c1(w128_t * w) {
     w->d[0] = 2.0 - w->d[0];
     w->d[1] = 2.0 - w->d[1];
 }
@@ -221,7 +217,7 @@ inline static void convert_o0c1(w128_t *w) {
  * in the range (0, 1).
  * @param w 128bit stracture of double precision floating point numbers (I/O)
  */
-inline static void convert_o0o1(w128_t *w) {
+inline static void convert_o0o1(w128_t * w) {
     w->u[0] |= 1;
     w->u[1] |= 1;
     w->d[0] -= 1.0;
@@ -236,32 +232,26 @@ inline static void convert_o0o1(w128_t *w) {
  * @param array an 128-bit array to be filled by pseudorandom numbers.  
  * @param size number of 128-bit pseudorandom numbers to be generated.
  */
-inline static void gen_rand_array_c1o2(dsfmt_t *dsfmt, w128_t *array,
-				       int size) {
+inline static void gen_rand_array_c1o2(dsfmt_t * dsfmt, w128_t * array, int size) {
     int i, j;
     w128_t lung;
 
     lung = dsfmt->status[DSFMT_N];
-    do_recursion(&array[0], &dsfmt->status[0], &dsfmt->status[DSFMT_POS1],
-		 &lung);
+    do_recursion(&array[0], &dsfmt->status[0], &dsfmt->status[DSFMT_POS1], &lung);
     for (i = 1; i < DSFMT_N - DSFMT_POS1; i++) {
-	do_recursion(&array[i], &dsfmt->status[i],
-		     &dsfmt->status[i + DSFMT_POS1], &lung);
+	do_recursion(&array[i], &dsfmt->status[i], &dsfmt->status[i + DSFMT_POS1], &lung);
     }
     for (; i < DSFMT_N; i++) {
-	do_recursion(&array[i], &dsfmt->status[i],
-		     &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &dsfmt->status[i], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
     }
     for (; i < size - DSFMT_N; i++) {
-	do_recursion(&array[i], &array[i - DSFMT_N],
-		     &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
     }
     for (j = 0; j < 2 * DSFMT_N - size; j++) {
 	dsfmt->status[j] = array[j + size - DSFMT_N];
     }
     for (; i < size; i++, j++) {
-	do_recursion(&array[i], &array[i - DSFMT_N],
-		     &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
 	dsfmt->status[j] = array[i];
     }
     dsfmt->status[DSFMT_N] = lung;
@@ -274,33 +264,27 @@ inline static void gen_rand_array_c1o2(dsfmt_t *dsfmt, w128_t *array,
  * @param array an 128-bit array to be filled by pseudorandom numbers.  
  * @param size number of 128-bit pseudorandom numbers to be generated.
  */
-inline static void gen_rand_array_c0o1(dsfmt_t *dsfmt, w128_t *array,
-				       int size) {
+inline static void gen_rand_array_c0o1(dsfmt_t * dsfmt, w128_t * array, int size) {
     int i, j;
     w128_t lung;
 
     lung = dsfmt->status[DSFMT_N];
-    do_recursion(&array[0], &dsfmt->status[0], &dsfmt->status[DSFMT_POS1],
-		 &lung);
+    do_recursion(&array[0], &dsfmt->status[0], &dsfmt->status[DSFMT_POS1], &lung);
     for (i = 1; i < DSFMT_N - DSFMT_POS1; i++) {
-	do_recursion(&array[i], &dsfmt->status[i],
-		     &dsfmt->status[i + DSFMT_POS1], &lung);
+	do_recursion(&array[i], &dsfmt->status[i], &dsfmt->status[i + DSFMT_POS1], &lung);
     }
     for (; i < DSFMT_N; i++) {
-	do_recursion(&array[i], &dsfmt->status[i],
-		     &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &dsfmt->status[i], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
     }
     for (; i < size - DSFMT_N; i++) {
-	do_recursion(&array[i], &array[i - DSFMT_N],
-		     &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
 	convert_c0o1(&array[i - DSFMT_N]);
     }
     for (j = 0; j < 2 * DSFMT_N - size; j++) {
 	dsfmt->status[j] = array[j + size - DSFMT_N];
     }
     for (; i < size; i++, j++) {
-	do_recursion(&array[i], &array[i - DSFMT_N],
-		     &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
 	dsfmt->status[j] = array[i];
 	convert_c0o1(&array[i - DSFMT_N]);
     }
@@ -317,33 +301,27 @@ inline static void gen_rand_array_c0o1(dsfmt_t *dsfmt, w128_t *array,
  * @param array an 128-bit array to be filled by pseudorandom numbers.  
  * @param size number of 128-bit pseudorandom numbers to be generated.
  */
-inline static void gen_rand_array_o0o1(dsfmt_t *dsfmt, w128_t *array,
-				       int size) {
+inline static void gen_rand_array_o0o1(dsfmt_t * dsfmt, w128_t * array, int size) {
     int i, j;
     w128_t lung;
 
     lung = dsfmt->status[DSFMT_N];
-    do_recursion(&array[0], &dsfmt->status[0], &dsfmt->status[DSFMT_POS1],
-		 &lung);
+    do_recursion(&array[0], &dsfmt->status[0], &dsfmt->status[DSFMT_POS1], &lung);
     for (i = 1; i < DSFMT_N - DSFMT_POS1; i++) {
-	do_recursion(&array[i], &dsfmt->status[i],
-		     &dsfmt->status[i + DSFMT_POS1], &lung);
+	do_recursion(&array[i], &dsfmt->status[i], &dsfmt->status[i + DSFMT_POS1], &lung);
     }
     for (; i < DSFMT_N; i++) {
-	do_recursion(&array[i], &dsfmt->status[i],
-		     &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &dsfmt->status[i], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
     }
     for (; i < size - DSFMT_N; i++) {
-	do_recursion(&array[i], &array[i - DSFMT_N],
-		     &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
 	convert_o0o1(&array[i - DSFMT_N]);
     }
     for (j = 0; j < 2 * DSFMT_N - size; j++) {
 	dsfmt->status[j] = array[j + size - DSFMT_N];
     }
     for (; i < size; i++, j++) {
-	do_recursion(&array[i], &array[i - DSFMT_N],
-		     &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
 	dsfmt->status[j] = array[i];
 	convert_o0o1(&array[i - DSFMT_N]);
     }
@@ -360,33 +338,27 @@ inline static void gen_rand_array_o0o1(dsfmt_t *dsfmt, w128_t *array,
  * @param array an 128-bit array to be filled by pseudorandom numbers.  
  * @param size number of 128-bit pseudorandom numbers to be generated.
  */
-inline static void gen_rand_array_o0c1(dsfmt_t *dsfmt, w128_t *array,
-				       int size) {
+inline static void gen_rand_array_o0c1(dsfmt_t * dsfmt, w128_t * array, int size) {
     int i, j;
     w128_t lung;
 
     lung = dsfmt->status[DSFMT_N];
-    do_recursion(&array[0], &dsfmt->status[0], &dsfmt->status[DSFMT_POS1],
-		 &lung);
+    do_recursion(&array[0], &dsfmt->status[0], &dsfmt->status[DSFMT_POS1], &lung);
     for (i = 1; i < DSFMT_N - DSFMT_POS1; i++) {
-	do_recursion(&array[i], &dsfmt->status[i],
-		     &dsfmt->status[i + DSFMT_POS1], &lung);
+	do_recursion(&array[i], &dsfmt->status[i], &dsfmt->status[i + DSFMT_POS1], &lung);
     }
     for (; i < DSFMT_N; i++) {
-	do_recursion(&array[i], &dsfmt->status[i],
-		     &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &dsfmt->status[i], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
     }
     for (; i < size - DSFMT_N; i++) {
-	do_recursion(&array[i], &array[i - DSFMT_N],
-		     &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
 	convert_o0c1(&array[i - DSFMT_N]);
     }
     for (j = 0; j < 2 * DSFMT_N - size; j++) {
 	dsfmt->status[j] = array[j + size - DSFMT_N];
     }
     for (; i < size; i++, j++) {
-	do_recursion(&array[i], &array[i - DSFMT_N],
-		     &array[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&array[i], &array[i - DSFMT_N], &array[i + DSFMT_POS1 - DSFMT_N], &lung);
 	dsfmt->status[j] = array[i];
 	convert_o0c1(&array[i - DSFMT_N]);
     }
@@ -421,7 +393,7 @@ static uint32_t ini_func2(uint32_t x) {
  * 754 format.
  * @param dsfmt dsfmt state vector.
  */
-static void initial_mask(dsfmt_t *dsfmt) {
+static void initial_mask(dsfmt_t * dsfmt) {
     int i;
     uint64_t *psfmt;
 
@@ -435,7 +407,7 @@ static void initial_mask(dsfmt_t *dsfmt) {
  * This function certificate the period of 2^{SFMT_MEXP}-1.
  * @param dsfmt dsfmt state vector.
  */
-static void period_certification(dsfmt_t *dsfmt) {
+static void period_certification(dsfmt_t * dsfmt) {
     uint64_t pcv[2] = {DSFMT_PCV1, DSFMT_PCV2};
     uint64_t tmp[2];
     uint64_t inner;
@@ -484,7 +456,7 @@ static void period_certification(dsfmt_t *dsfmt) {
  * the Mersenne exponent, and all parameters of this generator.
  * @return id string.
  */
-const char *dsfmt_get_idstring(void) {
+const char * dsfmt_get_idstring(void) {
     return DSFMT_IDSTR;
 }
 
@@ -502,20 +474,17 @@ int dsfmt_get_min_array_size(void) {
  * floating point pseudorandom numbers of the IEEE 754 format.
  * @param dsfmt dsfmt state vector.
  */
-void dsfmt_gen_rand_all(dsfmt_t *dsfmt) {
+void dsfmt_gen_rand_all(dsfmt_t * dsfmt) {
     int i;
     w128_t lung;
 
     lung = dsfmt->status[DSFMT_N];
-    do_recursion(&dsfmt->status[0], &dsfmt->status[0],
-		 &dsfmt->status[DSFMT_POS1], &lung);
+    do_recursion(&dsfmt->status[0], &dsfmt->status[0], &dsfmt->status[DSFMT_POS1], &lung);
     for (i = 1; i < DSFMT_N - DSFMT_POS1; i++) {
-	do_recursion(&dsfmt->status[i], &dsfmt->status[i],
-		     &dsfmt->status[i + DSFMT_POS1], &lung);
+	do_recursion(&dsfmt->status[i], &dsfmt->status[i], &dsfmt->status[i + DSFMT_POS1], &lung);
     }
     for (; i < DSFMT_N; i++) {
-	do_recursion(&dsfmt->status[i], &dsfmt->status[i],
-		     &dsfmt->status[i + DSFMT_POS1 - DSFMT_N], &lung);
+	do_recursion(&dsfmt->status[i], &dsfmt->status[i], &dsfmt->status[i + DSFMT_POS1 - DSFMT_N], &lung);
     }
     dsfmt->status[DSFMT_N] = lung;
 }
@@ -548,7 +517,7 @@ void dsfmt_gen_rand_all(dsfmt_t *dsfmt) {
  * memory. Mac OSX doesn't have these functions, but \b malloc of OSX
  * returns the pointer to the aligned memory block.
  */
-void dsfmt_fill_array_close1_open2(dsfmt_t *dsfmt, double array[], int size) {
+void dsfmt_fill_array_close1_open2(dsfmt_t * dsfmt, double array[], int size) {
     assert(size % 2 == 0);
     assert(size >= DSFMT_N64);
     gen_rand_array_c1o2(dsfmt, (w128_t *)array, size / 2);
@@ -566,7 +535,7 @@ void dsfmt_fill_array_close1_open2(dsfmt_t *dsfmt, double array[], int size) {
  * @param size the number of pseudorandom numbers to be generated.
  * see also \sa fill_array_close1_open2()
  */
-void dsfmt_fill_array_open_close(dsfmt_t *dsfmt, double array[], int size) {
+void dsfmt_fill_array_open_close(dsfmt_t * dsfmt, double array[], int size) {
     assert(size % 2 == 0);
     assert(size >= DSFMT_N64);
     gen_rand_array_o0c1(dsfmt, (w128_t *)array, size / 2);
@@ -584,7 +553,7 @@ void dsfmt_fill_array_open_close(dsfmt_t *dsfmt, double array[], int size) {
  * @param size the number of pseudorandom numbers to be generated.
  * see also \sa fill_array_close1_open2()
  */
-void dsfmt_fill_array_close_open(dsfmt_t *dsfmt, double array[], int size) {
+void dsfmt_fill_array_close_open(dsfmt_t * dsfmt, double array[], int size) {
     assert(size % 2 == 0);
     assert(size >= DSFMT_N64);
     gen_rand_array_c0o1(dsfmt, (w128_t *)array, size / 2);
@@ -602,7 +571,7 @@ void dsfmt_fill_array_close_open(dsfmt_t *dsfmt, double array[], int size) {
  * @param size the number of pseudorandom numbers to be generated.
  * see also \sa fill_array_close1_open2()
  */
-void dsfmt_fill_array_open_open(dsfmt_t *dsfmt, double array[], int size) {
+void dsfmt_fill_array_open_open(dsfmt_t * dsfmt, double array[], int size) {
     assert(size % 2 == 0);
     assert(size >= DSFMT_N64);
     gen_rand_array_o0o1(dsfmt, (w128_t *)array, size / 2);
@@ -617,15 +586,14 @@ void dsfmt_fill_array_open_open(dsfmt_t *dsfmt, double array[], int size) {
  * @param dsfmt dsfmt state vector.
  * @param seed a 32-bit integer used as the seed.
  */
-void dsfmt_init_gen_rand(dsfmt_t *dsfmt, uint32_t seed) {
+void dsfmt_init_gen_rand(dsfmt_t * dsfmt, uint32_t seed) {
     int i;
     uint32_t *psfmt;
 
     psfmt = &dsfmt->status[0].u32[0];
     psfmt[idxof(0)] = seed;
     for (i = 1; i < (DSFMT_N + 1) * 4; i++) {
-        psfmt[idxof(i)] = 1812433253UL 
-	    * (psfmt[idxof(i - 1)] ^ (psfmt[idxof(i - 1)] >> 30)) + i;
+        psfmt[idxof(i)] = 1812433253UL * (psfmt[idxof(i - 1)] ^ (psfmt[idxof(i - 1)] >> 30)) + i;
     }
     initial_mask(dsfmt);
     period_certification(dsfmt);
@@ -642,8 +610,7 @@ void dsfmt_init_gen_rand(dsfmt_t *dsfmt, uint32_t seed) {
  * @param init_key the array of 32-bit integers, used as a seed.
  * @param key_length the length of init_key.
  */
-void dsfmt_init_by_array(dsfmt_t *dsfmt, uint32_t init_key[],
-			     int key_length) {
+void dsfmt_init_by_array(dsfmt_t * dsfmt, uint32_t init_key[], int key_length) {
     int i, j, count;
     uint32_t r;
     uint32_t *psfmt32;
@@ -669,17 +636,14 @@ void dsfmt_init_by_array(dsfmt_t *dsfmt, uint32_t init_key[],
     } else {
 	count = size;
     }
-    r = ini_func1(psfmt32[idxof(0)] ^ psfmt32[idxof(mid % size)] 
-		  ^ psfmt32[idxof((size - 1) % size)]);
+    r = ini_func1(psfmt32[idxof(0)] ^ psfmt32[idxof(mid % size)] ^ psfmt32[idxof((size - 1) % size)]);
     psfmt32[idxof(mid % size)] += r;
     r += key_length;
     psfmt32[idxof((mid + lag) % size)] += r;
     psfmt32[idxof(0)] = r;
     count--;
     for (i = 1, j = 0; (j < count) && (j < key_length); j++) {
-	r = ini_func1(psfmt32[idxof(i)] 
-		      ^ psfmt32[idxof((i + mid) % size)] 
-		      ^ psfmt32[idxof((i + size - 1) % size)]);
+	r = ini_func1(psfmt32[idxof(i)] ^ psfmt32[idxof((i + mid) % size)] ^ psfmt32[idxof((i + size - 1) % size)]);
 	psfmt32[idxof((i + mid) % size)] += r;
 	r += init_key[j] + i;
 	psfmt32[idxof((i + mid + lag) % size)] += r;
@@ -687,9 +651,7 @@ void dsfmt_init_by_array(dsfmt_t *dsfmt, uint32_t init_key[],
 	i = (i + 1) % size;
     }
     for (; j < count; j++) {
-	r = ini_func1(psfmt32[idxof(i)] 
-		      ^ psfmt32[idxof((i + mid) % size)] 
-		      ^ psfmt32[idxof((i + size - 1) % size)]);
+	r = ini_func1(psfmt32[idxof(i)] ^ psfmt32[idxof((i + mid) % size)] ^ psfmt32[idxof((i + size - 1) % size)]);
 	psfmt32[idxof((i + mid) % size)] += r;
 	r += i;
 	psfmt32[idxof((i + mid + lag) % size)] += r;
@@ -697,9 +659,7 @@ void dsfmt_init_by_array(dsfmt_t *dsfmt, uint32_t init_key[],
 	i = (i + 1) % size;
     }
     for (j = 0; j < size; j++) {
-	r = ini_func2(psfmt32[idxof(i)] 
-		      + psfmt32[idxof((i + mid) % size)] 
-		      + psfmt32[idxof((i + size - 1) % size)]);
+	r = ini_func2(psfmt32[idxof(i)] + psfmt32[idxof((i + mid) % size)] + psfmt32[idxof((i + size - 1) % size)]);
 	psfmt32[idxof((i + mid) % size)] ^= r;
 	r -= i;
 	psfmt32[idxof((i + mid + lag) % size)] ^= r;
