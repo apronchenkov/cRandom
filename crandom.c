@@ -82,7 +82,7 @@ struct cRandom * dSFMTRandomNewByArray(int * array, int arrayLength) {
  * Create a new cRandom object (dSFMT based)
  */
 struct cRandom * dSFMTRandomNew(void) {
-  return dSFMTRandomNewBySeed(time(NULL));
+  return dSFMTRandomNewBySeed( (int) time(NULL));
 }
 
 
