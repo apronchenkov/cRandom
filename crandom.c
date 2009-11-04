@@ -44,7 +44,7 @@ double dSFMTRandomNext(void * that) {
  * Initialize it by 32-bit integer.
  */
 struct cRandom * dSFMTRandomNewBySeed(int seed) {
-  struct dSFMTRandom * random = malloc(sizeof(*random));
+  struct dSFMTRandom * random = (struct dSFMTRandom *) malloc(sizeof(*random));
 
   if( random == NULL )
     return NULL;
@@ -64,7 +64,7 @@ struct cRandom * dSFMTRandomNewBySeed(int seed) {
  * Initialize it by array.
  */
 struct cRandom * dSFMTRandomNewByArray(int * array, int arrayLength) {
-  struct dSFMTRandom * random = malloc(sizeof(*random));
+  struct dSFMTRandom * random = (struct dSFMTRandom *) malloc(sizeof(*random));
 
   if( random == NULL )
     return NULL;
