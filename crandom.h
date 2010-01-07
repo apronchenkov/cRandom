@@ -211,6 +211,18 @@ double chisquare(struct cRandom * crandom, int n);
 double student(struct cRandom * crandom, int n);
 
 
+/**
+ * Returns a power-law distributed positive real number
+ * NOTE: use k < -1, 0 < c
+ * NOTE: Please attention, this distribution does not precisely defined
+ *
+ * Range:    ((-k - 1) / c) ^ (k + 1) <= x
+ * Mean:     existed  (when k < -2)
+ * Variance: existed  (when k < -2)
+ */
+double power_law(struct cRandom * crandom, double k, double c);
+
+
 #ifdef __cplusplus
 }
 #endif
